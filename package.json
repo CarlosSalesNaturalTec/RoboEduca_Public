@@ -1,0 +1,22 @@
+{
+  "name": "roboeduca_public",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CarlosSalesNaturalTec/RoboEduca_Public.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CarlosSalesNaturalTec/RoboEduca_Public/issues"
+  },
+  "homepage": "https://github.com/CarlosSalesNaturalTec/RoboEduca_Public#readme",
+  "dependencies": {
+    "express": "^4.18.1"
+  }
+}

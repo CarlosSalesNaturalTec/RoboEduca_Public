@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robô Educa</title>
+</head>
+
+<body>
+
+    <!-- Audio In -->
+    <audio id="audioIn"></audio>
+    <audio id="audioOut" preload="none"></audio>
+    <br>
+
+    <!-- Botões de Controle -->
+    <div>
+        <button id="start" type="button">Falar...</button>
+        <button id="stop" type="button" style="display: none;">Concluir</button>
+    </div>
+
+    <br><br>
+
+    <!-- Div Mensagens -->
+    <div id="divMessages"></div>
+
+    <script>
+
+        const urlServer = 'https://codeengine-application-d0.t6vw6163k3t.us-east.codeengine.appdomain.cloud/watson_server';
+
+        const audioIn = document.getElementById('audioIn');
+        const audioOut = document.getElementById('audioOut');
+        const stopButton = document.getElementById('stop');
+        const startButton = document.getElementById('start');
+
+        var audioData = undefined;
+        var lenResposta = 0;
+
+        // Em caso de microfone ter sido detectado
+        const handleSuccess = function (stream) {
+
+            var audioTracks = stream.getAudioTracks();
+            displayMessage('Utilizando audio device/microfone: ' + audioTracks[0].label);
+
+            // Em caso de finalização do Stream
+            stream.onremovetrack = function () {
+                displayMessage('Streaming finalizado');
+            };
+
+            // torna as variáveis disponíveis para o Console do navegador
+            window.stream = stream;
+
+            // adiciona som do Microfone ao elemento audioIn
+            if ("srcObject" in audioIn) {
+                audioIn.srcObject = stream;
+            }
+            else {
+                // Old version   
+                audioIn.src = window.URL
+                    .createObjectURL(stream);
+            }
+
+            const options = { mimeType: 'audio/webm' };
+            let recordedChunks = [];
+            const mediaRecorder = new MediaRecorder(stream, options);
+
+            // Botão iniciar gravação
+            startButton.addEventListener('click', function () {
+                clearMessages();
+                startButton.style.display = "none";
+                stopButton.style.display = "block";
+                displayMessage("Iniciando gravação de audio.");
+
+                mediaRecorder.start();
+            });
+
+            // Botão Concluir  gravação
+            stopButton.addEventListener('click', function () {
+                startButton.style.display = "block";
+                stopButton.style.display = "none";
+                displayMessage("Parando gravação do audio.");
+
+                mediaRecorder.stop();
+            });
+
+            // Na medida que preenche buffer com audio, adiciona em array
+            mediaRecorder.addEventListener('dataavailable', function (e) {
+                if (e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                    displayMessage("Preenchendo Buffer.");
+                }
+            });
+
+            // Quando gravação é concluida
+            mediaRecorder.addEventListener('stop', function () {
+                // blob of type mp3
+                audioData = new Blob(recordedChunks, { 'type': 'audio/mp3;' });
+                //limpa memória
+                recordedChunks = [];
+                // envio de audio para transcrição
+                enviar();
+            });
+
+        };
+
+        // Envio de audio para transcrição
+        function enviar() {
+
+            let initialTime = Date.now();
+
+            displayMessage('Enviando audio para transcrição, aguarde...');
+
+            let formData = new FormData();
+            let nomeFile = "record_" + Date.now();
+            formData.append("fileupload", audioData, nomeFile);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', urlServer, true);
+
+            xhr.timeout = 5000; // tempo máximo para aguardar resposta (em milliseconds)
+
+            xhr.onreadystatechange = function (oEvent) {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        let objResp = JSON.parse(xhr.response);
+                        let transcricao = objResp.watson_transcricao;
+                        let resposta = objResp.watson_resposta;
+                        let audioFile = objResp.audio_file;
+                        lenResposta = resposta.length;
+
+                        displayMessage('Transcrição: ' + transcricao);
+                        displayMessage('Resposta: ' + resposta);
+                        displayMessage('Audio File: ' + audioFile);
+
+                        getAudioResponse(objResp.audio_file);
+                    } else {
+                        displayMessage('Erro no envio do audio para transcrição.');
+                    }
+                }
+                let finalTime = Date.now();
+                let timeElapsed = (finalTime - initialTime) / 1000;
+                displayMessage("Tempo de resposta: " + timeElapsed + "seg");
+                displayMessage("------------");
+            };
+
+            xhr.send(formData);
+
+        }
+
+        // Exibir mensagem de status
+        function displayMessage(message) {
+            var element = document.getElementById("divMessages");
+            element.innerHTML += message + "<br>";
+        }
+
+        function clearMessages() {
+            document.getElementById("divMessages").innerHTML = "";
+        }
+
+        // Obtem audio da resposta
+        function getAudioResponse(fileName) {
+            const audioPath = urlServer + "/audio?filename=" + fileName;
+            audioOut.src = audioPath;
+
+            if (lenResposta <= 50) { setTimeout(playAudio, 1000); }
+            if (lenResposta > 50 && lenResposta <= 80) { setTimeout(playAudio, 2000); }
+            if (lenResposta > 80 && lenResposta <= 150) { setTimeout(playAudio, 3000); }
+            if (lenResposta > 150) { setTimeout(playAudio, 4000); }
+        }
+
+        // Play no audio da resposta
+        function playAudio() {
+            audioOut.play();
+        }
+
+        // Adquirir acesso ao microfone
+        navigator.mediaDevices
+            .getUserMedia({ audio: true, video: false })
+            .then(handleSuccess)
+            .catch(function (err) {
+                console.log(err.name, err.message);
+                displayMessage(err.message);
+            });
+
+    </script>
+
+</body>
+
+</html>
