@@ -139,11 +139,11 @@
                     } else {
                         displayMessage('Erro no envio do audio para transcrição.');
                     }
+                    let finalTime = Date.now();
+                    let timeElapsed = (finalTime - initialTime) / 1000;
+                    displayMessage("Tempo de resposta: " + timeElapsed + "seg");
+                    displayMessage("------------");
                 }
-                let finalTime = Date.now();
-                let timeElapsed = (finalTime - initialTime) / 1000;
-                displayMessage("Tempo de resposta: " + timeElapsed + "seg");
-                displayMessage("------------");
             };
 
             xhr.send(formData);
