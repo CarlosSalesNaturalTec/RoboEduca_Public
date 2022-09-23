@@ -28,7 +28,8 @@
 
     <script>
 
-        const urlServer = 'https://codeengine-application-d0.t6vw6163k3t.us-east.codeengine.appdomain.cloud/watson_server';
+        const urlServer = 'https://codeengine-application-d0.t6vw6163k3t.us-east.codeengine.appdomain.cloud/watson_server';     // URL do servidor Watson (POST upload Audio)
+        const urlAudio = 'https://codeengine-application-d0.t6vw6163k3t.us-east.codeengine.appdomain.cloud/audio?filename=';    // URL do servidor Watson (GET Audio Resposta)
 
         const audioIn = document.getElementById('audioIn');
         const audioOut = document.getElementById('audioOut');
@@ -161,7 +162,7 @@
 
         // Obtem audio da resposta
         function getAudioResponse(fileName) {
-            const audioPath = urlServer + "/audio?filename=" + fileName;
+            const audioPath = urlAudio + fileName;
             audioOut.src = audioPath;
 
             if (lenResposta <= 50) { setTimeout(playAudio, 1000); }
