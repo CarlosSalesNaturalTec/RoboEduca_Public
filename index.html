@@ -15,12 +15,6 @@
     <audio id="audioOut" preload="none"></audio>
     <br>
 
-    <!-- Botões de Controle -->
-    <div>
-        <button id="start" type="button">Falar...</button>
-        <button id="stop" type="button" style="display: none;">Concluir</button>
-    </div>
-
     <br><br>
 
     <!-- Div Mensagens -->
@@ -28,16 +22,18 @@
 
     <script>
 
-        const urlServer = 'https://codeengine-application-d0.t6vw6163k3t.us-east.codeengine.appdomain.cloud/watson_server';     // URL do servidor Watson (POST upload Audio)
-        const urlAudio = 'https://codeengine-application-d0.t6vw6163k3t.us-east.codeengine.appdomain.cloud/audio?filename=';    // URL do servidor Watson (GET Audio Resposta)
+        //const urlServer = 'https://codeengine-application-d0.t6vw6163k3t.us-east.codeengine.appdomain.cloud/watson_server';     // URL do servidor Watson (POST upload Audio)
+        //const urlAudio = 'https://codeengine-application-d0.t6vw6163k3t.us-east.codeengine.appdomain.cloud/audio?filename=';    // URL do servidor Watson (GET Audio Resposta)
+        const urlServer = 'http://localhost:3000/watson_server';     // URL do servidor Watson (POST upload Audio)
+        const urlAudio = 'http://localhost:3000/audio?filename=';    // URL do servidor Watson (GET Audio Resposta)
 
         const audioIn = document.getElementById('audioIn');
-        const audioOut = document.getElementById('audioOut');
-        const stopButton = document.getElementById('stop');
-        const startButton = document.getElementById('start');
+        const audioOut = document.getElementById('audioOut');     
 
+        const volumeMin = 0.002;
         var audioData = undefined;
-        var lenResposta = 0;
+        var recording = false;
+        var lenResposta = 0;        
 
         // Em caso de microfone ter sido detectado
         const handleSuccess = function (stream) {
@@ -63,28 +59,49 @@
                     .createObjectURL(stream);
             }
 
+            // parâmetros utiizados na gravação da fala do usuário
             const options = { mimeType: 'audio/webm' };
             let recordedChunks = [];
             const mediaRecorder = new MediaRecorder(stream, options);
 
-            // Botão iniciar gravação
-            startButton.addEventListener('click', function () {
-                clearMessages();
-                startButton.style.display = "none";
-                stopButton.style.display = "block";
-                displayMessage("Iniciando gravação de audio.");
+            //#region - Análise de Volume de entrada do audio
+            const audioContext = new AudioContext();
+            const mediaStreamAudioSourceNode = audioContext.createMediaStreamSource(stream);
+            const analyserNode = audioContext.createAnalyser();
+            mediaStreamAudioSourceNode.connect(analyserNode);
 
-                mediaRecorder.start();
-            });
+            var initialTime = 0;
+            var finalTime = 0;
 
-            // Botão Concluir  gravação
-            stopButton.addEventListener('click', function () {
-                startButton.style.display = "block";
-                stopButton.style.display = "none";
-                displayMessage("Parando gravação do audio.");
+            const pcmData = new Float32Array(analyserNode.fftSize);
+            const onFrame = () => {
+                analyserNode.getFloatTimeDomainData(pcmData);
+                let sumSquares = 0.0;
+                for (const amplitude of pcmData) { sumSquares += amplitude * amplitude; }
+                let audioInvolume = Math.sqrt(sumSquares / pcmData.length);
 
-                mediaRecorder.stop();
-            });
+                if (audioInvolume >= volumeMin && recording == false) {
+                    recording = true;
+                    clearMessages();
+                    displayMessage("Iniciando gravação de audio.");
+                    mediaRecorder.start();
+                    initialTime = Date.now();
+                }
+
+                if (audioInvolume < volumeMin && recording == true ) {
+                    finalTime = Date.now();
+                    let timeElapsed = (finalTime - initialTime) ;
+                    if (timeElapsed >=1000 ) {
+                        recording = false;
+                        displayMessage("Parando gravação do audio.");
+                        mediaRecorder.stop();    
+                    }
+                }
+
+                window.requestAnimationFrame(onFrame);
+            };
+            window.requestAnimationFrame(onFrame);
+            //#endregion
 
             // Na medida que preenche buffer com audio, adiciona em array
             mediaRecorder.addEventListener('dataavailable', function (e) {
@@ -120,7 +137,7 @@
             var xhr = new XMLHttpRequest();
             xhr.open('POST', urlServer, true);
 
-            xhr.timeout = 5000; // tempo máximo para aguardar resposta (em milliseconds)
+            xhr.timeout = 10000; // tempo máximo para aguardar resposta (em milliseconds)
 
             xhr.onreadystatechange = function (oEvent) {
                 if (xhr.readyState === 4) {
